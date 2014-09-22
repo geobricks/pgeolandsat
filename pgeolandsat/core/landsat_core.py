@@ -1,10 +1,10 @@
 from ftplib import FTP
 from pgeo.error.custom_exceptions import PGeoException
 from pgeo.error.custom_exceptions import errors
-from pgeo.utils.date import day_of_the_year_to_date
-from bs4 import BeautifulSoup
-import urllib
 from pgeolandsat.config.landsat_config import config as conf
+import sys
+import urllib2
+import urllib
 
 
 def list_wrs():
@@ -154,3 +154,56 @@ def list_layers(wrs, path, row, date):
             raise PGeoException(errors[512], status_code=512)
     except:
         raise PGeoException(errors[511], status_code=511)
+
+
+def connect_to_landsat(username, password):
+    opener = urllib2.build_opener(urllib2.HTTPCookieProcessor())
+    urllib2.install_opener(opener)
+    params = urllib.urlencode(dict(username=username, password=password))
+    f = opener.open("https://earthexplorer.usgs.gov/login/", params)
+    data = f.read()
+    f.close()
+    if data.find('You must sign in as a registered user to download data or place orders for USGS EROS products')>0:
+        print 'Authentification failed'
+    else:
+        print 'Logged in as ' + username + ', congrats!'
+    # sys.exit(-1)
+    return
+
+
+def download(username, password):
+    print 'logging in...'
+    connect_to_landsat(username, password)
+    # LC8 191035 2013 160 LGN00
+    # LC8 191 035 2013 160 LGN00
+    # product + scene + date_asc + station + version
+    # product + (path + row) + date_asc + station + version
+    product = 'LC8'
+    station = 'LGN'
+    url = 'http://earthexplorer.usgs.gov/download/4923/'
+    url += product
+    url += '1910352013160'
+    url += station
+    url += '00/STANDARD/EE'
+    print url
+    file_name = '/Volumes/Macintosh HD/Users/simona/Desktop/test.tar.gz'
+    print file_name
+    u = urllib2.urlopen(url)
+    f = open(file_name, 'wb')
+    meta = u.info()
+    file_size = int(meta.getheaders("Content-Length")[0])
+    print "Downloading: %s Bytes: %s" % (file_name, file_size)
+    file_size_dl = 0
+    block_sz = 8192
+    while True:
+        buffer = u.read(block_sz)
+        if not buffer:
+            break
+        file_size_dl += len(buffer)
+        f.write(buffer)
+        status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. / file_size)
+        status = status + chr(8)*(len(status)+1)
+        print status
+    f.close()
+
+download('kalimaha', 'Ce09114238')
